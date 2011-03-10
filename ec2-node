@@ -1,0 +1,19 @@
+if [ -z $1 ]; then
+  echo "ec2-node - create an snapshot an ec2 instance for a node.js project"
+  echo "Usage: $0 project-name"
+  exit
+fi
+
+export NODE_PROCESS="$1"
+
+script/ec2-ubuntu $NODE_PROCESS m1.small
+
+ssh $NODE_PROCESS "curl http://github.com/fortnightlabs/ec2-node/raw/master/script/ubuntu-node | bash -s $NODE_PROCESS"
+
+cap deploy:setup
+cap deploy:update
+cap deploy:start
+
+scp -r ~/.ec2 $NODE_PROCESS:
+
+ssh $NODE_PROCESS "sudo /u/apps/$NODE_PROCESS/current/script/ec2-snapshot $NODE_PROCESS"

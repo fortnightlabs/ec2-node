@@ -1,0 +1,89 @@
+#! /usr/bin/env bash
+
+# IMPORTANT!!! - run this client-side first
+#     > scp -r ~/.ec2 snapshot-name:
+
+if [ -z $1 ]; then
+  echo "Usage: $0 snapshot-name"
+  exit
+fi
+snapshotname=$1
+region=${2:-'us-west-1'}
+
+function run() {
+  echo "$@"
+  eval "$@"
+}
+
+echo "moving EC2 auth keys to /mnt"
+run sudo mv .ec2/ /mnt/ec2
+echo
+
+echo "enabling apt-get multiverse..."
+run sudo sed -i.dist s/universe/multiverse/ /etc/apt/sources.list
+echo
+
+echo "installing ec2 tools..."
+run sudo apt-get -y update
+run sudo apt-get -y install ec2-ami-tools
+run sudo apt-get -y install ec2-api-tools
+echo
+
+echo "setting up environment variables..."
+source /mnt/ec2/aws-keys
+export EC2_PRIVATE_KEY=/mnt/ec2/pk-*.pem
+export EC2_CERT=/mnt/ec2/cert-*.pem
+export JAVA_HOME=/usr/lib/jvm/java-6-openjdk/
+if [ $(uname -m) = 'x86_64' ]; then
+  arch=x86_64
+else
+  arch=i386
+fi
+hostname=`hostname`
+instance=`ec2-describe-instances --region $region -K $EC2_PRIVATE_KEY -C $EC2_CERT | grep $hostname`
+iid=`echo $instance | cut -d' ' -f2`
+aki=`echo $instance | cut -d' ' -f12`
+attachment=`ec2-describe-volumes --region $region -K $EC2_PRIVATE_KEY -C $EC2_CERT | grep $iid`
+vol=`echo $attachment | cut -d' ' -f2`
+cat <<END
+environment:
+  arch: $arch
+  hostname: $hostname
+  instance: $instance
+  attachment: $volume
+  iid: $iid
+  aki: $aki
+  vol: $vol
+END
+echo
+
+echo "clearing history..."
+run 'sudo rm -f /root/.*hist* /home/ubuntu/.*hist*'
+run history -c
+echo
+
+echo "snapshotting..."
+run 'snapshot=`ec2-create-snapshot --region $region -K $EC2_PRIVATE_KEY -C $EC2_CERT $vol`'
+status='pending'
+snap=`echo $snapshot | cut -d' ' -f2`
+while [ $status != 'completed' ]; do
+  status=`ec2-describe-snapshots --region $region -K $EC2_PRIVATE_KEY -C $EC2_CERT $snap | cut -f4`
+  echo "waiting for snapshot..."
+  sleep 3
+done
+echo
+
+echo "registering the ami with amazon..."
+run ec2-register                    \
+  -K $EC2_PRIVATE_KEY               \
+  -C $EC2_CERT                      \
+  --region $region                  \
+  --name $snapshotname              \
+  --snapshot $snap                  \
+  --kernel $aki                     \
+  --architecture $arch              \
+  --root-device-name /dev/sda1
+echo
+
+# echo "cleaning up..." (no output)
+sudo rm -rf /mnt/ec2

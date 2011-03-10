@@ -1,0 +1,62 @@
+#! /usr/bin/env bash
+
+if [ -z $1 ]; then
+  echo "ec2-ubuntu - easy ec2 ubuntu server creation"
+  echo "Usage: $0 instance-name [instance-type [ami [region]]]"
+  exit
+fi
+instancename=$1
+instancetype=${2:-'t1.micro'}
+ami=${3:-'ami-f61141b3'}
+region=${4:-'us-west-1'}
+
+function run() {
+  echo "$@"
+  eval "$@"
+}
+
+if [ ! -f $HOME/.ec2/$instancename.pem ]; then
+  run "ec2-add-keypair --region $region $instancename > $HOME/.ec2/$instancename.pem"
+  run chmod 0600 $HOME/.ec2/$instancename.pem
+fi
+
+echo "starting instance..."
+run 'instance=`ec2-run-instances '"$ami"' --instance-type '"$instancetype"' --region '"$region"' --key '"$instancename"' | grep INSTANCE`'
+iid=`echo $instance | cut -d' ' -f2`
+status='pending'
+while [ $status != 'running' ]; do
+  sleep 3
+  run 'description=`ec2-describe-instances --region '"$region"' '"$iid"' | grep INSTANCE`'
+  status=`echo "$description" | cut -f6`
+  echo "waiting for instance to boot (status: $status)..."
+done
+
+hostname=`echo "$description" | cut -f4`
+
+run "ec2-authorize --region $region default -p 80"
+run "ec2-authorize --region $region default -p 22"
+
+while true; do
+  nc -z $hostname 22 && break
+  echo 'waiting for ssh to start...'
+  sleep 3
+done
+sleep 10 # ssh needs a bit of time to warm up
+
+echo
+
+echo "setting up ~/.ssh/config..."
+run 'cat <<END >> ~/.ssh/config
+
+Host '"$instancename"'
+  HostName '"$hostname"'
+  HostKeyAlias '"$hostname"'
+  User ubuntu
+  ForwardAgent yes
+  StrictHostKeyChecking no
+  IdentityFile ~/.ec2/'"$instancename.pem"'
+END'
+echo
+
+echo "setup complete, to get started:"
+echo "  > ssh $instancename"

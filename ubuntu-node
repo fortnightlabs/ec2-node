@@ -1,0 +1,77 @@
+#! /bin/env bash
+# http://dpritchett.posterous.com/get-up-and-running-with-nodejs-on-your-own-am
+# http://increaseyourgeek.wordpress.com/2010/08/18/install-node-js-without-using-sudo/
+# http://fortnightlabs.posterous.com/
+
+if [ -z $1 ]; then
+  echo "ubuntu-node - easy node.js ubuntu server set up"
+  echo "Usage: $0 project-name"
+  exit
+fi
+
+export NODE_PROCESS="$1"
+export AUTHORIZED_KEYS="$HOME/.ssh/authorized_keys"
+
+sudo -E bash # login root
+
+# install dependencies
+apt-get update -y
+apt-get install -y g++ curl libssl-dev apache2-utils git-core
+
+# create the app user
+mkdir /u
+useradd -U -d /u/apps -s /bin/bash -m app
+
+# set-up ssh
+mkdir /u/apps/.ssh
+cp $AUTHORIZED_KEYS /u/apps/.ssh/authorized_keys
+chmod 0700 /u/apps/.ssh
+chown -R app:app /u/apps/.ssh
+
+# create the upstart script
+cat <<END > /etc/init/$NODE_PROCESS.conf
+description "$NODE_PROCESS"
+author "visnup"
+
+start on startup
+stop on shutdown
+
+script
+  cd /u/apps/$NODE_PROCESS/current && exec sudo EXPRESS_ENV=production PORT=80 /u/apps/.nodelocal/bin/node /u/apps/$NODE_PROCESS/current/server.js 2>&1 >> /u/apps/$NODE_PROCESS/current/log/node.log
+end script
+END
+
+# let the app user start / stop / restart the process
+cat <<END >> /etc/sudoers
+app     ALL=NOPASSWD: /sbin/restart $NODE_PROCESS
+app     ALL=NOPASSWD: /sbin/stop $NODE_PROCESS
+app     ALL=NOPASSWD: /sbin/start $NODE_PROCESS
+END
+
+exit # logout root
+
+sudo su app # login app
+
+cd ~
+
+# setup space for node
+mkdir /u/apps/.nodelocal
+export PREFIX=/u/apps/.nodelocal
+echo 'export PATH=/u/apps/.nodelocal/bin:${PATH}' >> ~/.bashrc
+
+# install node latest
+NODE_URL="http://nodejs.org/dist/"
+NODE_VER=`curl -s $NODE_URL | grep gz | tail -1 | perl -ne 'print $1 if /(node.*?)\.tar\.gz/'`
+wget "$NODE_URL$NODE_VER.tar.gz"
+tar xzf "$NODE_VER.tar.gz"
+cd "$NODE_VER"
+./configure
+make && make install
+
+cd ~
+
+# install npm
+export PATH=/u/apps/.nodelocal/bin:${PATH}
+curl http://npmjs.org/install.sh | sh
+
+exit # logout app
