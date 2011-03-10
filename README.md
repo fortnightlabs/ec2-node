@@ -38,8 +38,11 @@ set up your computer
 go to the [amazon web
 interface](https://aws-portal.amazon.com/gp/aws/developer/account/index.html)
 
-note your `AWS_USER_ID` in the upper right hand corner. create a new
-`AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`.
+click on "Security Credentials" on the left
+
+note your `AWS_USER_ID` (Account Number) in the upper right hand
+corner; note your `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` in the
+middle
 
 edit ~/.ec2/aws-keys
 
@@ -55,6 +58,11 @@ create a new X.509 certificate, download the private key and certificate
 files, and then save the files in `$HOME/.ec2/`
 
     > mv ~/Downloads/*.pem ~/.ec2/
+
+**note** you must create a new certificate in order to download the
+private key. if you already have two X.509 certificates, Amazon will
+not show you the interface to create another one. you will have to
+delete one of your existing keys
 
 setup permissions on `~/.ec2`
 
@@ -73,7 +81,7 @@ add the following lines to your `.bash_profile`
     export EC2_PRIVATE_KEY="$(/bin/ls $HOME/.ec2/pk-*.pem)"
     export EC2_CERT="$(/bin/ls $HOME/.ec2/cert-*.pem)"
     export EC2_AMITOOL_HOME="/usr/local/Cellar/ec2-ami-tools/1.3-45758/jars"
-    export EC2_HOME="/usr/local/Cellar/ec2-api-tools/1.3-53907/jars"
+    export EC2_HOME="/usr/local/Cellar/ec2-api-tools/1.3-62308/jars"
     source $HOME/.ec2/aws-keys
 
 open a new shell, or
