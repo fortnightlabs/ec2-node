@@ -7,8 +7,8 @@ if [ -z $1 ]; then
 fi
 instancename=$1
 instancetype=${2:-'t1.micro'}
-ami=${3:-'ami-f61141b3'}
-region=${4:-'us-west-1'}
+ami=${3:-'ami-ccf405a5'}
+region=${4:-'us-east-1'}
 
 function run() {
   echo "$@"

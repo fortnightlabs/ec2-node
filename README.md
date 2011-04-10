@@ -1,5 +1,5 @@
-Setup Node on EC2
------------------
+node.js on EC2
+--------------
 
 These are the steps needed to manually setup node.js on an EC2 instance.
 
@@ -112,7 +112,7 @@ here's the choice I made
 platform because we need `/mnt` (not available on micro) to do the
 bundling.  Once we have our new instance handy, we will move it to micro.
 
-    > ec2-ubuntu am1.small mi-1234de7b us-east-1
+    > ec2-ubuntu am1.small ami-1234de7b us-east-1
 
 the script will create a new instance and wait until it's running by
 watching `ec2-describe-instances` for the string `running`
